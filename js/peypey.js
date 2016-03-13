@@ -1,6 +1,6 @@
 "use strict";
 
-/* singleton */
+/* singletons */
 
 var text = {
     init: function(){
@@ -13,7 +13,6 @@ var text = {
 
     },
 }
-
 var judge = {
     perfectwindow: 50,
     okwindow: 100,
@@ -30,20 +29,16 @@ var judge = {
 }
 
 var Music = {
-    loaded: false,
     /* a prototype function. do not use */
-    loadjson: function(json){
+    loaded: false,
+    init: function(json){
         this.sound = game.add.audio('tear');
-        
-        this.beatlist = json.beatlist;
-        this.beatpos = 0;
-
         this.restart_off = 0;
         this.offset = json.offset;
         this.period = json.period;
-        this.loaded = true;
         this.t = 0;
         this.prevt = 0;
+        this.loaded = true;
     },
 
     update: function(){
@@ -56,20 +51,128 @@ var Music = {
         }
     },
 
+}
+
+var BeatList = {
+    init: function(json){
+        this.beatlist = json.beatlist;
+        this.beats = [];
+        this.pos = 0;
+    },
+    beatdata: function(){
+        return this.beatlist[this.pos];
+    },
     queuebeat: function(){
         var beatlistlength = this.beatlist.length;
 
-        var beatdata = this.beatlist[this.beatpos];
-        while(this.beatpos != beatlistlength && beatdata[0] - this.t <= 4000){
+        while(this.pos != beatlistlength && this.beatdata()[0] - music.t <= 4000){
+            var beatdata = this.beatdata();
             
-            beatdata = this.beatlist[this.beatpos];
+            var beat = game.add.sprite(game.world.centerX, 100, 'emoji');
+            beat.inputEnabled = true;
+            beat.anchor.setTo(0.5, 0.5);
+            beat.timing = beatdata[0];
+            beat.lane = beatdata[1];
+            beat.glyph = beatdata[2];
+            beat.x = (widths/4) + beat.lane*(widths/4);
+            beat.frame = beat.glyph;
+            beat.erased = false;  
+            this.beats.push(beat);
             
-            var beat = Object.create(Beat);
-            beat.load(beatdata);
-            
-            sprites.push(beat);
-            this.beatpos += 1;
+            this.pos += 1;
         }
+    },
+
+    killall: function(){
+        this.beats.forEach(function(e,i,a){
+            e.kill();
+        });
+    },
+
+    update: function(){
+        var beatsnew = [];
+        this.beats.forEach(function(e,i,a){
+            e.y = (heights*5/6) - ((e.timing - music.t)/judge.frame * (heights*5/6));
+
+            if(music.t - e.timing >= 300){
+                if(e.frame != 208 && e.frame != 46){
+                    e.frame = 86;
+                }
+            }
+
+            if(e.y >= heights || e.erased){
+                e.kill();
+            }
+            else{
+                beatsnew.push(e);
+            }
+        });
+        this.beats = beatsnew;
+    }
+}
+
+var LineList = {
+    init: function(){
+        this.lines = [];
+        this.linecover = 850;
+    },
+
+    update: function(){
+        var t = music.t;
+        var linesnew = [];
+        if(this.linecover < t+2000){
+            this.linecover = Math.round((this.linecover-music.offset)/music.period)*music.period + music.offset;
+
+            var line = game.add.sprite(game.world.centerX, 100, 'line');
+            line.anchor.setTo(0.5, 0.5);
+            line.timing = this.linecover;
+            console.log(line.timing+" "+ music.period);
+            this.lines.push(line);
+            this.linecover += music.period;
+        }
+        this.lines.forEach(function(e,i,a){
+            e.y = 500 - ((e.timing - t)/judge.frame * 400);
+            if(e.y >= 600 || e.erased){
+                e.kill();
+            }
+            else{
+                linesnew.push(e);
+            }
+        });
+        this.lines = linesnew;
+    }
+}
+
+var TapList = {
+    init: function(){
+        this.taps = [];
+    },
+
+    addtap: function(lane, glyph){
+        var tap = game.add.sprite(game.world.centerX, 100, 'emoji');
+        
+        tap.anchor.setTo(0.5, 0.5);
+        tap.x = (widths/4) + lane*(widths/4);
+        tap.y = (heights*5/6);
+        tap.scale.setTo(3.0, 3.0);
+        tap.frame = glyph;
+
+        this.taps.push(tap);
+    },
+
+    update: function(){
+        var tapsnew = [];
+        this.taps.forEach(function(e,i,a){
+            e.alpha -= 0.1*(1.05 - e.alpha);
+            e.scale.setTo(1.0+e.alpha, 1.0+e.alpha);
+            if(e.alpha < 0.01){
+                e.kill();
+            }
+            else{
+                tapsnew.push(e);
+            }
+        });
+        this.taps = tapsnew;
     }
 }
 
@@ -118,37 +221,31 @@ function loadStart(){
     text.text = "Loading";
 }
 
-var Beat = {
-    load: function(beatdata){
-        this.sprite = game.add.sprite(game.world.centerX, 100, 'emoji');
-        this.sprite.inputEnabled = true;
-        this.sprite.anchor.setTo(0.5, 0.5);
-        this.timing = beatdata[0];
-        this.lane = beatdata[1];
-        this.glyph = beatdata[2];
-        this.sprite.x = (widths/4) + this.lane*(widths/4);
-        this.sprite.frame = this.glyph;
-        this.erased = false;
-    },
-    kill: function(){
-        this.sprite.kill();
-    }
-}
-
-
+var music = {};
+var beatlist = {};
+var linelist = {};
+var taplist = {};
 
 function loadComplete(){
 
     /* loads the stage */
     text.text = "Loaded";
 
-    music.loadjson(JSON.parse(game.cache.getText('song')));
-
-    music.sound.play();
-
-    judge.init(music.period * 2);
+    music = Object.create(Music);
+    beatlist = Object.create(BeatList);
+    linelist = Object.create(LineList);
+    taplist = Object.create(TapList);
 
     var marisa1 = game.add.sprite(0, 0, 'marisa');
+
+    var json = JSON.parse(game.cache.getText('song'));
+    music.init(json);
+    beatlist.init(json);
+    judge.init(music.period * 2);
+    linelist.init();
+    taplist.init();
+
+    music.sound.play();
 
     scanline = game.add.sprite(widths/2, heights*5/6, 'fall2');
     scanline.anchor.setTo(0.5, 0.5);
@@ -170,7 +267,8 @@ function loadComplete(){
         key.a.onDown.add(keyActivate('a'));
         key.s.onDown.add(keyActivate('s'));
         key.d.onDown.add(keyActivate('d'));
-        game.input.onUp.add(mouseActivate, this);
+        //game.input.onUp.add(mouseActivate, this);
+        game.input.onTap.add(mouseKeyActivate, this);
     }
     else{
         game.input.onTap.add(mouseKeyActivate, this);
@@ -179,75 +277,18 @@ function loadComplete(){
     stage.update = function(){
         music.update();
 
-        
-        var t = music.t;
-        console.log(t);
-
         if (music.sound.isDecoding){
-            text.text = "Loading song."
+            text.text = "Loading song";
             game.world.bringToTop(text);
             return;
         }
-
-        music.queuebeat();
-        
-        var linesnew = [];
-        if(linecover < t+2000){
-            linecover = Math.round((linecover-music.offset)/music.period)*music.period + music.offset;
-
-            var line = game.add.sprite(game.world.centerX, 100, 'line');
-            line.anchor.setTo(0.5, 0.5);
-            line.timing = linecover;
-            console.log(line.timing+" "+ music.period);
-            lines.push(line);
-            linecover += music.period;
+        else{
+            text.text = "";
         }
-        lines.forEach(function(e,i,a){
-            e.y = 500 - ((e.timing - t)/judge.frame * 400);
-            if(e.y >= 600 || e.erased){
-                e.kill();
-            }
-            else{
-                linesnew.push(e);
-            }
-        });
-        lines = linesnew;
-        
-
-        var spritesnew = [];
-        sprites.forEach(function(e,i,a){
-            e.sprite.y = (heights*5/6) - ((e.timing - t)/judge.frame * (heights*5/6));
-            console.log(e.sprite.y);
-
-            if(t - e.timing >= 300){
-                if(e.sprite.frame != 208 && e.sprite.frame != 46){
-                    e.sprite.frame = 86;
-                }
-            }
-
-            if(e.sprite.y >= heights || e.erased){
-                e.kill();
-            }
-            else{
-                spritesnew.push(e);
-            }
-        });
-        sprites = spritesnew;
-        console.log(sprites);
-
-        var tappersnew = [];
-        tappers.forEach(function(e,i,a){
-            e.alpha -= 0.1*(1.05 - e.alpha);
-            e.scale.setTo(1.0+e.alpha, 1.0+e.alpha);
-            if(e.alpha < 0.01){
-                e.kill();
-                console.log(t);
-            }
-            else{
-                tappersnew.push(e);
-            }
-        });
-        tappers = tappersnew;
+        beatlist.queuebeat();
+        beatlist.update();
+        linelist.update();
+        taplist.update();
     }
 
 }
@@ -332,31 +373,28 @@ function keyActivate(key){
     return function(){
         if(key == 's' || key == 'd'){
             if(music.sound.isPlaying == true){
-                music.pause();
+                music.sound.pause();
             }
-            var off = music.sound.currentTime + music.restart_off;
+            var off = music.t;
             var added = 0;
 
             if(key == 's'){
-                added -= music.timing.period*2;
+                added -= music.period*2;
             }
             else if(key == 'd'){
-                added += music.timing.period*2;
+                added += music.period*2;
             }
 
-            sprites.forEach(function(e,i,a){
-                e.kill();
-            });
-            sprites = [];
+            beatlist.killall();
 
             off += added;
             if(off < 0) off = 0;
-            music.restart('', off/1000.0);
+            music.sound.restart('', off/1000.0);
             music.restart_off = off;
 
-            music.beatpos = 0;
-            while(music.beatdata[music.beatpos][0] < off-1000){
-                music.beatpos += 1;
+            beatlist.pos = 0;
+            while(beatlist.beatdata()[0] < off-1000){
+                beatlist.pos += 1;
             }
 
             return;
@@ -372,57 +410,37 @@ function keyActivate(key){
         }
 
         else if(key == 'v'){
-
-            sprites.forEach(function(e,i,a){
-                e.kill();
-            });
-            sprites = [];
-
-            var off = (music.timing.offset);
-            music.restart('', off/1000.0);
-            music.restart_off = off;
-
-            beatpos = 0;
-            while(beats[beatpos][0] < off){
-                beatpos += 1;
-            }
+            beatlist.killall();
+            music.sound.restart('', music.offset/1000.0);
+            music.restart_off = music.offset;
+            beatlist.pos = 0;
             return;
         }
 
-        var t = music.sound.currentTime + music.restart_off;
 
-        sprites.forEach(function(e,i,a){
-            if(e.sprite.frame == 46 || e.sprite.frame == 208){
+        beatlist.beats.forEach(function(e,i,a){
+            var gap = Math.abs(e.timing - music.t);
+            
+            if(gap > 300){
             }
-            else if(Math.abs(e.timing - t) > 300){
-            }
-            else if(Math.abs(e.timing - t) < judge.okwindow){
+            else if(gap < judge.okwindow){
                 var keymapper = {'z':0, 'x':1, 'c': 2};
                 if(e.lane == keymapper[key]){
-                    if(Math.abs(e.timing - t) < judge.perfectwindow){
+                    if(gap < judge.perfectwindow){
                         /* perfect shot! */
                         e.kill();
                         judge.score += 100;
-                        spritetap(e.lane, e.glyph);
+                        taplist.addtap(e.lane, e.glyph);
                     }
                     else{
                         /* ok shot. */
                         e.kill();
                         judge.score += 50;
-                        spritetap(e.lane, e.glyph);
+                        taplist.addtap(e.lane, e.glyph);
                     }
                     console.log(judge.score);
                 }
             }
         });
     }
-}
-function spritetap(lane, glyph){
-    var tapper = game.add.sprite(game.world.centerX, 100, 'emoji');
-    tapper.anchor.setTo(0.5, 0.5);
-    tapper.x = (widths/4) + lane*(widths/4);
-    tapper.y = (heights*5/6);
-    tapper.scale.setTo(3.0, 3.0);
-    tapper.frame = glyph;
-    tappers.push(tapper);
 }
