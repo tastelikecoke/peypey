@@ -1,6 +1,36 @@
 "use strict";
 
 
+/* singleton */
+var judge = {
+    perfectwindow: 50,
+    okwindow: 100,
+    score: 0,
+    init: function(frame){
+        judge.frame = frame;
+        judge.scoretext = game.add.text(game.world.centerX, game.world.centerY, '0');
+        judge.scoretext.anchor.set(0.5);
+        judge.scoretext.font = 'Verdana';
+        judge.scoretext.fontSize = 36;
+        judge.scoretext.fill = '#ffffff';
+        judge.scoretext.alpha = 1;
+    },
+}
+
+var text = {
+    init: function(){
+        text = game.add.text(game.world.centerX, game.world.centerY, '0');
+        text.anchor.set(0.5);
+        text.font = 'Verdana';
+        text.fontSize = 36;
+        text.fill = '#ffffff';
+        text.text = "...";
+
+    },
+}
+
+
+
 function preload() {
 }
 
@@ -11,7 +41,6 @@ function create() {
     game.load.onLoadStart.add(loadStart, this);
     game.load.onLoadComplete.add(loadComplete, this);
 
-    console.log("Loading...");
     game.load.audio('tear', 'assets/tearrain.mp3');
     game.load.image('marisa', 'assets/marisa2.png');
     game.load.image('tewi', 'assets/tewi.png');
@@ -21,14 +50,8 @@ function create() {
     game.load.image('fall2', 'assets/fall2.png');
     game.load.spritesheet('emoji', 'assets/apple.png', 32, 32, 1681);
     game.load.text('song', 'assets/song.json');
-    console.log("Loading done");
 
-    text = game.add.text(game.world.centerX, game.world.centerY, '0');
-    text.anchor.set(0.5);
-    text.font = 'Verdana';
-    text.fontSize = 36;
-    text.fill = '#ffffff';
-    text.text = "...";
+    text.init();
 
     game.load.start();
 }
@@ -39,51 +62,30 @@ function loadStart(){
     text.text = "Loading";
 }
 
+
+
 function loadComplete(){
 
     /* loads everything */
-    beats = JSON.parse(game.cache.getText('song')).only;
+    text.text = "Loaded";
+
+    var musicjson = JSON.parse(game.cache.getText('song'))
+    beats = musicjson.only;
     music = game.add.audio('tear');
     music.restart_off = 0;
     music.timing = {
-        offset: 852.1,
-        period: 468.75,
+        offset: musicjson.offset,
+        period: musicjson.period,
     }
     music.play();
 
-    judge = {
-        perfectwindow: 50,
-        okwindow: 100,
-        frame: (music.timing.period * 2),
-        score: 0,
-    }
+    judge.init(music.timing.period * 2);
 
-    var marisa0 = game.add.sprite(0, 0, 'load');
-
-    judge.scoretext = game.add.text(game.world.centerX, game.world.centerY, '0');
-    judge.scoretext.anchor.set(0.5);
-    judge.scoretext.font = 'Verdana';
-    judge.scoretext.fontSize = 36;
-    judge.scoretext.fill = '#ffffff';
-    judge.scoretext.alpha = 1;
-
-    var marisa2 = game.add.sprite(0, 0, 'marisa');
-    var rem1 = game.add.sprite(0, 0, 'rem');
-    var tewi = game.add.sprite(0, 0, 'tewi');
     var marisa1 = game.add.sprite(0, 0, 'marisa');
-    slideshow.push(marisa1);
-    slideshow.push(tewi);
-    slideshow.push(rem1);
-    slideshow.push(marisa2);
 
     scanline = game.add.sprite(widths/2, heights*5/6, 'fall2');
     scanline.anchor.setTo(0.5, 0.5);
     scanline.scale.setTo(320/800.0,320/800.0);
-
-
-    var marisa4 = game.add.sprite(0, 0, 'load');
-    slideshow.push(marisa4);
-
 
     key.z = game.input.keyboard.addKey(Phaser.Keyboard.Z);
     key.x = game.input.keyboard.addKey(Phaser.Keyboard.X);
@@ -375,22 +377,6 @@ function update(){
     });
     tappers = tappersnew;
 
-    if(t > 10){
-        slideshow[4].alpha *= 0.90;
-    }
-    if(t > 30852){
-        slideshow[0].alpha *= 0.90;
-    }
-    if(t > 45852){
-        slideshow[1].alpha *= 0.90;
-    }
-    if(t > 75852){
-        slideshow[2].alpha *= 0.90;
-    }
-    if(t > 135148){
-        judge.scoretext.text = "Score\n"+judge.score
-        slideshow[3].alpha *= 0.90;
-    }
     prevt = t;
 }
 
