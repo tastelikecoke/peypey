@@ -35,17 +35,14 @@ Tap the screen or press Z, X, or C to hit emoji!
 <script type='text/javascript' src='js/peypey.js'></script>
 <script type='text/javascript'>
 
-var debug = false;
-
-var beats = [];
-
-var beatpos = 0;
+var debug = true;
 
 var game = new Phaser.Game(320, 480, Phaser.CANVAS, 'phaser-example', { create: create, preload: preload, update: update, render: render});
 var widths = 320;
 var heights = 480;
 
-var music = {};
+/* default music */
+var music = Object.create(Music);
 
 
 /* from create */

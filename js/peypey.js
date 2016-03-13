@@ -1,7 +1,19 @@
 "use strict";
 
-
 /* singleton */
+
+var text = {
+    init: function(){
+        text = game.add.text(game.world.centerX, game.world.centerY, '0');
+        text.anchor.set(0.5);
+        text.font = 'Verdana';
+        text.fontSize = 36;
+        text.fill = '#ffffff';
+        text.text = "...";
+
+    },
+}
+
 var judge = {
     perfectwindow: 50,
     okwindow: 100,
@@ -17,25 +29,63 @@ var judge = {
     },
 }
 
-var text = {
-    init: function(){
-        text = game.add.text(game.world.centerX, game.world.centerY, '0');
-        text.anchor.set(0.5);
-        text.font = 'Verdana';
-        text.fontSize = 36;
-        text.fill = '#ffffff';
-        text.text = "...";
+var Music = {
+    loaded: false,
+    /* a prototype function. do not use */
+    loadjson: function(json){
+        this.sound = game.add.audio('tear');
+        
+        this.beatlist = json.beatlist;
+        this.beatpos = 0;
 
+        this.restart_off = 0;
+        this.offset = json.offset;
+        this.period = json.period;
+        this.loaded = true;
+        this.t = 0;
+        this.prevt = 0;
     },
+
+    update: function(){
+        this.prevt = this.t;
+        if(this.loaded){
+            this.t = this.sound.currentTime + this.restart_off;
+        }
+        if(this.prevt >= this.t){
+            this.t += game.time.physicsElapsed;
+        }
+    },
+
+    queuebeat: function(){
+        var beatlistlength = this.beatlist.length;
+
+        var beatdata = this.beatlist[this.beatpos];
+        while(this.beatpos != beatlistlength && beatdata[0] - this.t <= 4000){
+            
+            beatdata = this.beatlist[this.beatpos];
+            
+            var beat = Object.create(Beat);
+            beat.load(beatdata);
+            
+            sprites.push(beat);
+            this.beatpos += 1;
+        }
+    }
+}
+
+var stage = {
+    update: function(){
+        console.log("Nothing to stage");
+    }
 }
 
 
-
-function preload() {
+function preload(){
 }
 
-function create() {
-    /* loads the stage */
+function create(){
+
+    /* loads the prestage */
     game.stage.backgroundColor = 0x999999;
 
     game.load.onLoadStart.add(loadStart, this);
@@ -56,30 +106,47 @@ function create() {
     game.load.start();
 }
 
+function update(){
+    stage.update();
+}
+
+function render() {
+}
+
 function loadStart(){
     /* loads everything at the start */
-
     text.text = "Loading";
+}
+
+var Beat = {
+    load: function(beatdata){
+        this.sprite = game.add.sprite(game.world.centerX, 100, 'emoji');
+        this.sprite.inputEnabled = true;
+        this.sprite.anchor.setTo(0.5, 0.5);
+        this.timing = beatdata[0];
+        this.lane = beatdata[1];
+        this.glyph = beatdata[2];
+        this.sprite.x = (widths/4) + this.lane*(widths/4);
+        this.sprite.frame = this.glyph;
+        this.erased = false;
+    },
+    kill: function(){
+        this.sprite.kill();
+    }
 }
 
 
 
 function loadComplete(){
 
-    /* loads everything */
+    /* loads the stage */
     text.text = "Loaded";
 
-    var musicjson = JSON.parse(game.cache.getText('song'))
-    beats = musicjson.only;
-    music = game.add.audio('tear');
-    music.restart_off = 0;
-    music.timing = {
-        offset: musicjson.offset,
-        period: musicjson.period,
-    }
-    music.play();
+    music.loadjson(JSON.parse(game.cache.getText('song')));
 
-    judge.init(music.timing.period * 2);
+    music.sound.play();
+
+    judge.init(music.period * 2);
 
     var marisa1 = game.add.sprite(0, 0, 'marisa');
 
@@ -108,6 +175,81 @@ function loadComplete(){
     else{
         game.input.onTap.add(mouseKeyActivate, this);
     }
+
+    stage.update = function(){
+        music.update();
+
+        
+        var t = music.t;
+        console.log(t);
+
+        if (music.sound.isDecoding){
+            text.text = "Loading song."
+            game.world.bringToTop(text);
+            return;
+        }
+
+        music.queuebeat();
+        
+        var linesnew = [];
+        if(linecover < t+2000){
+            linecover = Math.round((linecover-music.offset)/music.period)*music.period + music.offset;
+
+            var line = game.add.sprite(game.world.centerX, 100, 'line');
+            line.anchor.setTo(0.5, 0.5);
+            line.timing = linecover;
+            console.log(line.timing+" "+ music.period);
+            lines.push(line);
+            linecover += music.period;
+        }
+        lines.forEach(function(e,i,a){
+            e.y = 500 - ((e.timing - t)/judge.frame * 400);
+            if(e.y >= 600 || e.erased){
+                e.kill();
+            }
+            else{
+                linesnew.push(e);
+            }
+        });
+        lines = linesnew;
+        
+
+        var spritesnew = [];
+        sprites.forEach(function(e,i,a){
+            e.sprite.y = (heights*5/6) - ((e.timing - t)/judge.frame * (heights*5/6));
+            console.log(e.sprite.y);
+
+            if(t - e.timing >= 300){
+                if(e.sprite.frame != 208 && e.sprite.frame != 46){
+                    e.sprite.frame = 86;
+                }
+            }
+
+            if(e.sprite.y >= heights || e.erased){
+                e.kill();
+            }
+            else{
+                spritesnew.push(e);
+            }
+        });
+        sprites = spritesnew;
+        console.log(sprites);
+
+        var tappersnew = [];
+        tappers.forEach(function(e,i,a){
+            e.alpha -= 0.1*(1.05 - e.alpha);
+            e.scale.setTo(1.0+e.alpha, 1.0+e.alpha);
+            if(e.alpha < 0.01){
+                e.kill();
+                console.log(t);
+            }
+            else{
+                tappersnew.push(e);
+            }
+        });
+        tappers = tappersnew;
+    }
+
 }
 
 function mouseKeyActivate(tap){
@@ -119,7 +261,8 @@ function mouseKeyActivate(tap){
 }
 
 function mouseActivate(key){
-    var t = music.currentTime + music.restart_off;
+    /*
+    var t = music.sound.currentTime + music.restart_off;
 
     var mousey = game.input.mousePointer.y;
     var dist = (((heights*5/6) - mousey)/(heights*2/3) * judge.frame);
@@ -160,7 +303,7 @@ function mouseActivate(key){
     var beat = game.add.sprite(game.world.centerX, 100, 'emoji');
     beat.anchor.setTo(0.5, 0.5);
     
-    var nearest = Math.round(((dist + t)-music.timing.offset)/music.timing.period*2.0)*music.timing.period/2.0 + music.timing.offset;
+    var nearest = Math.round(((dist + t)-music.offset)/music.period*2.0)*music.period/2.0 + music.offset;
     beat.timing = nearest;
 
     beat.lane = Math.round((game.input.mousePointer.x - (widths/4))/(widths/4));
@@ -181,17 +324,17 @@ function mouseActivate(key){
     beatpos = 0;
     while(beats[beatpos][0] < t-1000){
         beatpos += 1;
-    }
+    }*/
 }
 
 
 function keyActivate(key){
     return function(){
         if(key == 's' || key == 'd'){
-            if(music.isPlaying == true){
+            if(music.sound.isPlaying == true){
                 music.pause();
             }
-            var off = music.currentTime + music.restart_off;
+            var off = music.sound.currentTime + music.restart_off;
             var added = 0;
 
             if(key == 's'){
@@ -211,20 +354,20 @@ function keyActivate(key){
             music.restart('', off/1000.0);
             music.restart_off = off;
 
-            beatpos = 0;
-            while(beats[beatpos][0] < off-1000){
-                beatpos += 1;
+            music.beatpos = 0;
+            while(music.beatdata[music.beatpos][0] < off-1000){
+                music.beatpos += 1;
             }
 
             return;
         }
 
         else if(key == 'a'){
-            if(music.isPlaying == true){
-                music.pause();
+            if(music.sound.isPlaying == true){
+                music.sound.pause();
             }
             else{
-                music.resume();
+                music.sound.resume();
             }
         }
 
@@ -246,10 +389,10 @@ function keyActivate(key){
             return;
         }
 
-        var t = music.currentTime + music.restart_off;
+        var t = music.sound.currentTime + music.restart_off;
 
         sprites.forEach(function(e,i,a){
-            if(e.frame == 46 || e.frame == 208){
+            if(e.sprite.frame == 46 || e.sprite.frame == 208){
             }
             else if(Math.abs(e.timing - t) > 300){
             }
@@ -282,103 +425,4 @@ function spritetap(lane, glyph){
     tapper.scale.setTo(3.0, 3.0);
     tapper.frame = glyph;
     tappers.push(tapper);
-}
-
-function queueBeats(t){
-    var beatslength = beats.length;
-
-    while(beatpos != beatslength && beats[beatpos][0] - t <= 4000){
-        var beat = game.add.sprite(game.world.centerX, 100, 'emoji');
-
-        beat.inputEnabled = true;
-        beat.anchor.setTo(0.5, 0.5);
-
-        beat.timing = beats[beatpos][0];
-        beat.lane = beats[beatpos][1];
-        beat.glyph = beats[beatpos][2];
-        beat.x = (widths/4) + beat.lane*(widths/4);
-        beat.frame = beat.glyph;
-        beat.erased = false;
-        
-        sprites.push(beat);
-        beatpos += 1;
-    }
-}
-
-function update(){
-    var t = music.currentTime + music.restart_off;
-    if(prevt >= t){
-        t += game.time.physicsElapsed;
-    }
-
-    if (music.isDecoding){
-        text.text = "Loading song."
-        game.world.bringToTop(text);
-    }
-    else{
-    }
-
-    queueBeats(t);
-
-    
-    var linesnew = [];
-    if(linecover < t+2000){
-        linecover = Math.round((linecover-music.timing.offset)/music.timing.period)*music.timing.period + music.timing.offset;
-
-        var line = game.add.sprite(game.world.centerX, 100, 'line');
-        line.anchor.setTo(0.5, 0.5);
-        line.timing = linecover;
-        console.log(line.timing+" "+ music.timing.period);
-        lines.push(line);
-        linecover += music.timing.period;
-    }
-    lines.forEach(function(e,i,a){
-        e.y = 500 - ((e.timing - t)/judge.frame * 400);
-        if(e.y >= 600 || e.erased){
-            e.kill();
-        }
-        else{
-            linesnew.push(e);
-        }
-    });
-    lines = linesnew;
-    
-
-    var spritesnew = [];
-    sprites.forEach(function(e,i,a){
-        e.y = (heights*5/6) - ((e.timing - t)/judge.frame * (heights*5/6));
-
-        if(t - e.timing >= 300){
-            if(e.frame != 208 && e.frame != 46){
-                e.frame = 86;
-            }
-        }
-
-        if(e.y >= heights || e.erased){
-            e.kill();
-        }
-        else{
-            spritesnew.push(e);
-        }
-    });
-    sprites = spritesnew;
-
-    var tappersnew = [];
-    tappers.forEach(function(e,i,a){
-        e.alpha -= 0.1*(1.05 - e.alpha);
-        e.scale.setTo(1.0+e.alpha, 1.0+e.alpha);
-        if(e.alpha < 0.01){
-            e.kill();
-            console.log(t);
-        }
-        else{
-            tappersnew.push(e);
-        }
-    });
-    tappers = tappersnew;
-
-    prevt = t;
-}
-
-function render() {
 }
