@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title></title>
+<script src="js/phaser.js"></script>
+<script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
+<!-- http://paletton.com/#uid=3080u0km5eupfqwnIj2lw9Tlk5O -->
+<meta name="viewport" content="width=device-width; 
+    initial-scale=1, maximum-scale=1, user-scalable=0,"/>
+<style type="text/css">
+canvas {
+    padding: 0;
+    margin: auto;
+    display: block;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+
+body{
+  background-color: #0A181D;
+}
+p{
+    color: white;
+    text-align: center;
+}
+</style>
+</head>
+<body>
+<p>
+developer mode!
+</p>
+<script type='text/javascript' src='js/peypey.js'></script>
+<script type='text/javascript' src='js/peypeydev.js'></script>
+<script type='text/javascript'>
+
+var debug = true;
+
+var game = new Phaser.Game(320, 480, Phaser.CANVAS, 'phaser-example', { create: create, preload: preload, update: update, render: render});
+var widths = 320;
+var heights = 480;
+
+var lagged = 0;
+
+var key = {};
+
+var scanline;
+
+
+</script>
+</body>
+</html>

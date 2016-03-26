@@ -1,8 +1,10 @@
 # peypey
-3-button rhythm game
+5-button rhythm game copying Museca.
 
 # How to Run
 This game involves creating a webserver, preferably using Python.
+
+Use a CGI webserver for charting and development.
 
 ## Python Instructions
 

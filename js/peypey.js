@@ -57,37 +57,34 @@ var BeatList = {
     init: function(json){
         this.beatlist = json.beatlist;
         this.beats = [];
-        this.held = [];
         this.pos = 0;
     },
-    beatdata: function(){
-        return this.beatlist[this.pos];
+    makebeat: function(beatdata){
+        var beat = game.add.sprite(game.world.centerX, 100, 'emoji');
+        beat.inputEnabled = true;
+        beat.anchor.setTo(0.5, 1.0);
+        beat.timing = beatdata[0];
+        beat.lane = beatdata[1];
+        beat.glyph = 176;
+        if(beat.lane == 1 || beat.lane == 3)
+            beat.glyph = 340;
+        beat.x = (widths/6) + beat.lane*(widths/6);
+        beat.frame = beat.glyph;
+        beat.erased = false;
+        beat.hold = -1;
+
+        if(beatdata[2] == 69){
+            beat.hold = music.period;
+        }
+        return beat;
+
     },
     queuebeat: function(){
         var beatlistlength = this.beatlist.length;
 
-        while(this.pos != beatlistlength && this.beatdata()[0] - music.t <= 4000){
-            var beatdata = this.beatdata();
-            
-            var beat = game.add.sprite(game.world.centerX, 100, 'emoji');
-            beat.inputEnabled = true;
-            beat.anchor.setTo(0.5, 1.0);
-            beat.timing = beatdata[0];
-            beat.lane = Math.floor(Math.random()*5);
-            beat.glyph = 176;
-            if(beat.lane == 1 || beat.lane == 3)
-                beat.glyph = 178;
-            beat.x = (widths/6) + beat.lane*(widths/6);
-            beat.frame = beat.glyph;
-            beat.erased = false;
-            beat.hold = -1;
-
-            if(beatdata[2] == 69){
-                beat.hold = music.period;
-            }
-
+        while(this.pos != beatlistlength && this.beatlist[this.pos][0] - music.t <= 4000){
+            var beat = this.makebeat(this.beatlist[this.pos]);
             this.beats.push(beat);
-            
             this.pos += 1;
         }
     },
@@ -301,8 +298,8 @@ function loadComplete(){
         key.a.onDown.add(eater.getKeyActivate('a'));
         key.s.onDown.add(eater.getKeyActivate('s'));
         key.d.onDown.add(eater.getKeyActivate('d'));
-        //game.input.onUp.add(mouseActivate, this);
-        game.input.onTap.add(mouseKeyActivate, this);
+        game.input.onUp.add(mouseActivate, this);
+        //game.input.onTap.add(mouseKeyActivate, this);
     }
     else{
         game.input.onTap.add(mouseKeyActivate, this);
@@ -323,30 +320,30 @@ function loadComplete(){
         beatlist.update();
         linelist.update();
         taplist.update();
+        eater.update();
     }
-
 }
 
 function mouseKeyActivate(tap){
     var lane = Math.round((tap.x-widths/6)/(widths/6));
-    if(lane == 0) keyActivate('z')();
-    if(lane == 1) keyActivate('x')();
-    if(lane == 2) keyActivate('c')();
-    if(lane == 3) keyActivate('v')();
-    if(lane == 4) keyActivate('b')();
+    console.log(lane);
+    if(lane == 0) eater.keyActivate('h');
+    if(lane == 1) eater.keyActivate('n');
+    if(lane == 2) eater.keyActivate('j');
+    if(lane == 3) eater.keyActivate('m');
+    if(lane == 4) eater.keyActivate('k');
 }
 
 function mouseActivate(key){
-    /*
     var t = music.t;
-
+    /*
     var mousey = game.input.mousePointer.y;
     var dist = (((heights*5/6) - mousey)/(heights*2/3) * judge.frame);
     console.log(dist + t);
 
     var skip = false;
 
-    sprites.forEach(function(e,i,a){
+    beatlist.beats.forEach(function(e,i,a){
         var spritedist = (e.y-mousey)*(e.y-mousey) + (e.x-game.input.mousePointer.x)*(e.x-game.input.mousePointer.x);
         if(spritedist < 100){
             e.erased = true;
@@ -411,6 +408,15 @@ var eater = {
         'm': null,
         'k': null,
     },
+    update: function(key){
+        var helds = ['h','n','j','m','k'];
+        for(var i=0; i<5; i++){
+
+            if(eater.held[helds[i]]){
+                taplist.addtap(eater.held[helds[i]].lane, eater.held[helds[i]].glyph);
+            }
+        }
+    },
     getKeyActivate: function(key){
         return function(){
             eater.keyActivate(key);
@@ -423,9 +429,8 @@ var eater = {
     },
     keyActivate: function(key){
         if(key == 's' || key == 'd'){
-            if(music.sound.isPlaying == true){
-                music.sound.pause();
-            }
+            music.sound.pause();
+            
             var off = music.t;
             var added = 0;
 
@@ -441,10 +446,11 @@ var eater = {
             off += added;
             if(off < 0) off = 0;
             music.sound.restart('', off/1000.0);
+            music.sound.volume = 0.2;
             music.restart_off = off;
 
             beatlist.pos = 0;
-            while(beatlist.beatdata()[0] < off-1000){
+            while(beatlist.beatlist[beatlist.pos][0] < off-1000){
                 beatlist.pos += 1;
             }
 
@@ -457,6 +463,7 @@ var eater = {
             }
             else{
                 music.sound.resume();
+                music.sound.volume = 0.2;
             }
         }
 
@@ -479,6 +486,7 @@ var eater = {
                 if(e.lane == keymapper[key]){
                     if(e.hold != -1){
                         eater.held[key] = e;
+                        taplist.addtap(e.lane, e.glyph);
                     }
                     else if(gap < judge.perfectwindow){
                         /* perfect shot! */
@@ -511,32 +519,3 @@ var eater = {
 
 }
 
-/*
-function keyDeactivate(key){
-    return function(){
-        var heldnew = [];
-        beatlist.held.forEach(function(e,i,a){
-            var gap = Math.abs(e.timing - music.t);
-            
-            if(gap > 300){
-                e.kill();
-            }
-            else if(gap < judge.okwindow){
-                var keymapper = {'z':0, 'x':1, 'c': 2, 'v': 3, 'b': 4,};
-                if(e.lane == keymapper[key]){
-                    judge.score += 100;
-                    taplist.addtap(e.lane, e.glyph);
-                    e.kill();
-                }
-                else{
-                    heldnew.push(e);
-                }
-            }
-            else{
-                
-                e.kill();
-            }
-        });
-        beatlist.held = heldnew;
-    }
-}*/
