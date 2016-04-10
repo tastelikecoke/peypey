@@ -2,6 +2,17 @@
 
 /* singletons */
 
+function makerect(x, y, w, h, fill='#ffffff'){
+    var bitmap = game.add.bitmapData(w, h);
+    bitmap.ctx.beginPath();
+    bitmap.ctx.rect(0, 0, w, h);
+    bitmap.ctx.fillStyle = fill;
+    bitmap.ctx.fill();
+    var sprite = game.add.sprite(x, y, bitmap);
+    sprite.anchor.setTo(0.5, 0.5);
+    return sprite
+}
+
 var text = {
     init: function(){
         text = game.add.text(game.world.centerX, game.world.centerY, '0');
@@ -33,13 +44,16 @@ var Music = {
     /* a prototype function. do not use */
     loaded: false,
     init: function(json){
-        this.sound = game.add.audio('tear');
+        this.sound = game.add.audio(json.song);
         this.restart_off = 0;
         this.offset = json.offset;
         this.period = json.period;
         this.t = 0;
         this.prevt = 0;
         this.loaded = true;
+        this.inside = json.inside;
+        this.outside = json.outside;
+        this.base = json.base;
     },
 
     update: function(){
@@ -50,7 +64,15 @@ var Music = {
         if(this.prevt >= this.t){
             this.t += game.time.physicsElapsed;
         }
+        if(!this.sound.isPlaying){
+            stage.tear();
+            mainMenu();
+        }
     },
+
+    destroy: function(){
+        this.sound.destroy();
+    }
 }
 
 var BeatList = {
@@ -60,16 +82,21 @@ var BeatList = {
         this.pos = 0;
     },
     makebeat: function(beatdata){
-        var beat = game.add.sprite(game.world.centerX, 100, 'emoji');
+        var color = music.inside;
+        if(beatdata[1] == 1 || beatdata[1] == 3){
+            color = music.outside;
+        }
+        var beat = makerect(game.world.centerX, 100, 32, 16, color);
+        //game.add.sprite(game.world.centerX, 100, "drop");
+        //game.add.sprite(game.world.centerX, 100, 'emoji');
+        beat.frame = 0;
         beat.inputEnabled = true;
         beat.anchor.setTo(0.5, 1.0);
         beat.timing = beatdata[0];
         beat.lane = beatdata[1];
-        beat.glyph = 176;
-        if(beat.lane == 1 || beat.lane == 3)
-            beat.glyph = 340;
+
+
         beat.x = (widths/6) + beat.lane*(widths/6);
-        beat.frame = beat.glyph;
         beat.erased = false;
         beat.hold = -1;
 
@@ -95,10 +122,18 @@ var BeatList = {
         });
     },
 
+    destroy: function(){
+        this.beats.forEach(function(e,i,a){
+            e.destroy();
+        })
+    },
+
     update: function(){
         var beatsnew = [];
         this.beats.forEach(function(e,i,a){
-            e.y = (heights*5/6) - ((e.timing - music.t)/judge.frame * (heights*5/6));
+            //100(1 - 1/x)
+            var foc = (e.timing - music.t)/judge.frame;
+            e.y =  5*heights/6 * (1- foc);
 
             if(e.hold != -1){
                 var extray = (heights*5/6) - ((e.timing - music.t - e.hold)/judge.frame * (heights*5/6));
@@ -115,11 +150,29 @@ var BeatList = {
             if(e.hold == -1 && (e.y >= heights || e.erased)){
                 e.kill();
             }
+            else if(e.hold != -1 && e.hold + (e.timing - music.t) < 0){
+                e.kill();
+            }
             else{
                 beatsnew.push(e);
             }
         });
+        if(this.beats.length >= 1){
+
+            if(this.beats[0].lane == 1 || this.beats[0].lane == 3){
+                if(stage.plank2.alpha < 0.8){
+                    console.log("happening");
+                    stage.plank2.alpha += 0.1;
+                }
+            }
+            else{
+                if(stage.plank2.alpha > 0.2){
+                    stage.plank2.alpha -= 0.1;
+                }
+            }
         
+        }
+
         this.beats = beatsnew;
     }
 }
@@ -152,7 +205,13 @@ var LineList = {
             }
         });
         this.lines = linesnew;
-    }
+    },
+
+    destroy: function(){
+        this.lines.forEach(function(e,i,a){
+            e.destroy();
+        })
+    },
 }
 
 var TapList = {
@@ -185,7 +244,13 @@ var TapList = {
             }
         });
         this.taps = tapsnew;
-    }
+    },
+
+    destroy: function(){
+        this.taps.forEach(function(e,i,a){
+            e.destroy();
+        })
+    },
 }
 
 var stage = {
@@ -199,24 +264,29 @@ function preload(){
 }
 
 function create(){
-
     /* loads the prestage */
     game.stage.backgroundColor = 0x999999;
-
-    game.load.onLoadStart.add(loadStart, this);
     game.load.onLoadComplete.add(loadComplete, this);
+    //game.load.onLoadComplete.add(loadComplete, this);
 
     game.load.audio('tear', 'assets/tearrain.mp3');
+    game.load.audio('luv', 'assets/luv.mp3');
+    //game.load.audio('shibayan', 'assets/shibayan.mp3');
     game.load.image('marisa', 'assets/marisa2.png');
+    game.load.spritesheet('drop', 'assets/drop.png', 32, 32);
+    game.load.spritesheet('flip', 'assets/flip.png');
     game.load.image('tewi', 'assets/tewi.png');
     game.load.image('load', 'assets/load.png');
     game.load.image('rem', 'assets/rem.png');
     game.load.image('line', 'assets/line.png');
     game.load.image('fall2', 'assets/fall2.png');
     game.load.spritesheet('emoji', 'assets/apple.png', 32, 32, 1681);
-    game.load.text('song', 'assets/song.json');
+    game.load.text('tearsong', 'assets/song.json');
+    game.load.text('luvsong', 'assets/songB.json');
 
-    text.init();
+
+    game.load.image('tearbg', 'assets/tear.png');
+    game.load.image('luvbg', 'assets/luv.png');
 
     game.load.start();
 }
@@ -236,41 +306,83 @@ function render(){
     }
 }
 
-function loadStart(){
-    /* loads everything at the start */
-    text.text = "Loading";
-}
-
 var music = {};
 var beatlist = {};
 var linelist = {};
 var taplist = {};
 
 function loadComplete(){
+    mainMenu();
+}
+
+
+
+function mainMenu(){
+    
+    var menu = {
+        songlist: ['tear', 'luv'],
+        spritelist: [
+            game.add.button(0,0, "tearbg", function(){
+                stage.tear();
+                setStage('tearsong');
+            }),
+            game.add.button(320,0, "luvbg", function(){
+                stage.tear();
+                setStage('luvsong');
+            }),
+        ],
+        swapbutton: game.add.button(0,400, "flip", function(){
+            menu.swap();
+        }),
+        pos: 0,
+        swap: function(){
+            var buttonx = menu.spritelist[0].x;
+            menu.spritelist[0].x = menu.spritelist[1].x;
+            menu.spritelist[1].x = buttonx;
+        }
+    }
+
+    menu.spritelist.forEach(function(e,i,a){
+        e.onInputOver.add(function(){
+            e.alpha -= 0.3;
+        });
+        e.onInputOut.add(function(){
+            e.alpha += 0.3;
+        });
+    });
+
+    stage.tear = function(){
+        menu.spritelist.forEach(function(e,i,a){
+            e.destroy();
+        });
+    }
+
+}
+
+function setStage(song){
 
     /* loads the stage */
     text.text = "Loaded";
 
     music = Object.create(Music);
     beatlist = Object.create(BeatList);
-    linelist = Object.create(LineList);
+    //linelist = Object.create(LineList);
     taplist = Object.create(TapList);
 
-    var marisa1 = game.add.sprite(0, 0, 'marisa');
 
-    var json = JSON.parse(game.cache.getText('song'));
+    var json = JSON.parse(game.cache.getText(song));
     music.init(json);
     beatlist.init(json);
     judge.init(music.period * 2);
-    linelist.init();
+    //linelist.init();
     taplist.init();
+
+    stage.back = makerect(widths/2, heights/2, widths, heights, music.base);
+    stage.plank = makerect(widths/2, heights*11/12, widths, heights*1/6, music.inside);
+    stage.plank2 = makerect(widths/2, heights*11/12, widths, heights*1/6, music.outside);
 
     music.sound.play();
     music.sound.volume = 0.2;
-
-    scanline = game.add.sprite(widths/2, heights*5/6, 'fall2');
-    scanline.anchor.setTo(0.5, 0.5);
-    scanline.scale.setTo(320/800.0,320/800.0);
 
     key.h = game.input.keyboard.addKey(Phaser.Keyboard.H);
     key.n = game.input.keyboard.addKey(Phaser.Keyboard.N);
@@ -310,7 +422,6 @@ function loadComplete(){
 
         if (music.sound.isDecoding){
             text.text = "Loading song";
-            game.world.bringToTop(text);
             return;
         }
         else{
@@ -318,10 +429,22 @@ function loadComplete(){
         }
         beatlist.queuebeat();
         beatlist.update();
-        linelist.update();
+        //linelist.update();
         taplist.update();
         eater.update();
     }
+
+    stage.tear = function(){
+        tearStage();
+    }
+}
+
+function tearStage(){
+    music.destroy();
+    beatlist.destroy();
+    //linelist.destroy();
+    taplist.destroy();
+    stage.update = function(){};
 }
 
 function mouseKeyActivate(tap){
@@ -335,69 +458,6 @@ function mouseKeyActivate(tap){
 }
 
 function mouseActivate(key){
-    var t = music.t;
-    /*
-    var mousey = game.input.mousePointer.y;
-    var dist = (((heights*5/6) - mousey)/(heights*2/3) * judge.frame);
-    console.log(dist + t);
-
-    var skip = false;
-
-    beatlist.beats.forEach(function(e,i,a){
-        var spritedist = (e.y-mousey)*(e.y-mousey) + (e.x-game.input.mousePointer.x)*(e.x-game.input.mousePointer.x);
-        if(spritedist < 100){
-            e.erased = true;
-            skip = true;
-
-            for(var i=0; i < beats.length; i++){
-                var f = beats[i];
-                console.log();
-                if(Math.abs(f[0]-e.timing) < 0.1 && Math.abs(f[1]-e.lane) < 0.1 &&  Math.abs(f[2]-e.glyph) < 0.1){
-                    console.log("match"+beats[i]);
-                    beats.splice(i,1);
-                    break;
-                }
-            }
-        }
-    });
-    if(skip){
-        sprites.forEach(function(e,i,a){
-            e.kill();
-        });
-        sprites = [];
-
-        beatpos = 0;
-        while(beats[beatpos][0] < t-1000){
-            beatpos += 1;
-        }
-        return;
-    }
-
-    var beat = game.add.sprite(game.world.centerX, 100, 'emoji');
-    beat.anchor.setTo(0.5, 0.5);
-    
-    var nearest = Math.round(((dist + t)-music.offset)/music.period*2.0)*music.period/2.0 + music.offset;
-    beat.timing = nearest;
-
-    beat.lane = Math.round((game.input.mousePointer.x - (widths/4))/(widths/4));
-    beat.glyph = 10;
-    beat.x = (widths/4) + beat.lane*(widths/4);
-    beat.frame = beat.glyph;
-    sprites.push(beat);
-    sprites.sort(function(a, b){
-        return a.timing - b.timing;
-    });
-
-    beats.push([beat.timing, beat.lane, beat.glyph]);
-    beats.sort(function(a, b){
-        return a[0] - b[0];
-    });
-    console.log(beats);
-
-    beatpos = 0;
-    while(beats[beatpos][0] < t-1000){
-        beatpos += 1;
-    }*/
 }
 
 var eater = {
