@@ -293,12 +293,12 @@ function create(){
     game.load.image('blank', 'assets/blank.png');
     game.load.spritesheet('drop', 'assets/drop.png', 32, 32);
     game.load.spritesheet('flip', 'assets/flip.png');
-    game.load.image('tewi', 'assets/tewi.png');
+    //game.load.image('tewi', 'assets/tewi.png');
     game.load.image('load', 'assets/load.png');
-    game.load.image('rem', 'assets/rem.png');
-    game.load.image('line', 'assets/line.png');
+    //game.load.image('rem', 'assets/rem.png');
+    //game.load.image('line', 'assets/line.png');
     game.load.image('fall2', 'assets/fall2.png');
-    game.load.spritesheet('emoji', 'assets/apple.png', 32, 32, 1681);
+    //game.load.spritesheet('emoji', 'assets/apple.png', 32, 32, 1681);
     game.load.text('tearsong', 'assets/song.json');
     game.load.text('luvsong', 'assets/songB.json');
 
