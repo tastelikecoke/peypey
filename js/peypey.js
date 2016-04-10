@@ -2,12 +2,17 @@
 
 /* singletons */
 
-function makerect(x, y, w, h, fill='#ffffff'){
+function makerect(x, y, w, h, fill, mask){
+    if(fill == undefined) fill='#ffffff';
     var bitmap = game.add.bitmapData(w, h);
     bitmap.ctx.beginPath();
     bitmap.ctx.rect(0, 0, w, h);
     bitmap.ctx.fillStyle = fill;
     bitmap.ctx.fill();
+    if(mask == 'mask'){
+
+        bitmap.alphaMask('w')
+    }
     var sprite = game.add.sprite(x, y, bitmap);
     sprite.anchor.setTo(0.5, 0.5);
     return sprite
@@ -31,12 +36,6 @@ var judge = {
     score: 0,
     init: function(frame){
         judge.frame = frame;
-        judge.scoretext = game.add.text(game.world.centerX, game.world.centerY, '0');
-        judge.scoretext.anchor.set(0.5);
-        judge.scoretext.font = 'Verdana';
-        judge.scoretext.fontSize = 36;
-        judge.scoretext.fill = '#ffffff';
-        judge.scoretext.alpha = 1;
     },
 }
 
@@ -54,19 +53,29 @@ var Music = {
         this.inside = json.inside;
         this.outside = json.outside;
         this.base = json.base;
+        this.end = json.end;
     },
 
     update: function(){
         this.prevt = this.t;
         if(this.loaded){
             this.t = this.sound.currentTime + this.restart_off;
+            if(!this.sound.isDecoding){
+                if(this.end == -1){
+                    if(this.sound.isPlaying){
+                        this.end = this.sound.totalDuration * 1000 - 10;
+                    }
+                }
+                else if(this.end < this.sound.currentTime){
+                    console.log('happening' + " "+ (this.sound.totalDuration*1000-10));
+                    console.log(this.sound.currentTime);
+                    stage.tear();
+                    scoreStage();
+                }
+            }
         }
         if(this.prevt >= this.t){
             this.t += game.time.physicsElapsed;
-        }
-        if(!this.sound.isPlaying){
-            stage.tear();
-            mainMenu();
         }
     },
 
@@ -160,14 +169,16 @@ var BeatList = {
         if(this.beats.length >= 1){
 
             if(this.beats[0].lane == 1 || this.beats[0].lane == 3){
-                if(stage.plank2.alpha < 0.8){
+                if(stage.plank2.alpha < 1.0){
                     console.log("happening");
-                    stage.plank2.alpha += 0.1;
+                    stage.plank2.alpha += 0.2;
+                    if(stage.plank2.alpha > 1.0) stage.plank2.alpha = 1.0;
                 }
             }
             else{
-                if(stage.plank2.alpha > 0.2){
-                    stage.plank2.alpha -= 0.1;
+                if(stage.plank2.alpha > 0.0){
+                    stage.plank2.alpha -= 0.2;
+                    if(stage.plank2.alpha < 0.0) stage.plank2.alpha = 0.0;
                 }
             }
         
@@ -220,14 +231,16 @@ var TapList = {
     },
 
     addtap: function(lane, glyph){
-        var tap = game.add.sprite(game.world.centerX, 100, 'emoji');
+        var tap = game.add.sprite(game.world.centerX, 100, 'circle');
         
         tap.anchor.setTo(0.5, 0.5);
         tap.x = (widths/6) + lane*(widths/6);
         tap.y = (heights*5/6);
+        if(lane==1 || lane==3){
+            tap.y = heights;
+        }
         tap.scale.setTo(3.0, 3.0);
-        tap.frame = glyph;
-
+        tap.frame = 1;
         this.taps.push(tap);
     },
 
@@ -273,6 +286,11 @@ function create(){
     game.load.audio('luv', 'assets/luv.mp3');
     //game.load.audio('shibayan', 'assets/shibayan.mp3');
     game.load.image('marisa', 'assets/marisa2.png');
+    game.load.image('screen0', 'assets/screen0.png');
+    game.load.image('screen1', 'assets/screen1.png');
+    game.load.image('screen2', 'assets/screen2.png');
+    game.load.image('w', 'assets/w.png');
+    game.load.image('blank', 'assets/blank.png');
     game.load.spritesheet('drop', 'assets/drop.png', 32, 32);
     game.load.spritesheet('flip', 'assets/flip.png');
     game.load.image('tewi', 'assets/tewi.png');
@@ -285,6 +303,7 @@ function create(){
     game.load.text('luvsong', 'assets/songB.json');
 
 
+    game.load.spritesheet('circle', 'assets/drop.png', 32, 32);
     game.load.image('tearbg', 'assets/tear.png');
     game.load.image('luvbg', 'assets/luv.png');
 
@@ -310,6 +329,7 @@ var music = {};
 var beatlist = {};
 var linelist = {};
 var taplist = {};
+var begin = true;
 
 function loadComplete(){
     mainMenu();
@@ -319,6 +339,8 @@ function loadComplete(){
 
 function mainMenu(){
     
+
+
     var menu = {
         songlist: ['tear', 'luv'],
         spritelist: [
@@ -357,12 +379,47 @@ function mainMenu(){
         });
     }
 
+    if(begin){
+        game.add.button(0,0, "screen2", function(){
+
+            this.destroy();
+        });
+        game.add.button(0,0, "screen1", function(){
+            
+            this.destroy();
+        });
+        game.add.button(0,0, "screen0", function(){
+            
+            this.destroy();
+        });
+    begin = false;
+    }
+}
+
+function scoreStage(){
+    var percent = Math.floor(judge.score / beatlist.beatlist.length * 10000)/100;
+    
+
+
+    judge.scoretext = game.add.text(game.world.centerX, game.world.centerY, "SCORE\n"+percent.toString()+"%");
+    judge.scoretext.anchor.set(0.5);
+    judge.scoretext.font = 'Abril Fatface';
+    judge.scoretext.fontSize = 36;
+    judge.scoretext.fill = '#ffffff';
+    judge.scoretext.alpha = 1;
+
+
+    game.add.button(0,400, "flip", function(){
+        judge.scoretext.destroy();
+        mainMenu();
+    });
 }
 
 function setStage(song){
 
     /* loads the stage */
     text.text = "Loaded";
+    judge.score = 0;
 
     music = Object.create(Music);
     beatlist = Object.create(BeatList);
@@ -379,7 +436,8 @@ function setStage(song){
 
     stage.back = makerect(widths/2, heights/2, widths, heights, music.base);
     stage.plank = makerect(widths/2, heights*11/12, widths, heights*1/6, music.inside);
-    stage.plank2 = makerect(widths/2, heights*11/12, widths, heights*1/6, music.outside);
+    stage.plank2 = makerect(widths/2, heights*11/12, widths, heights*1/6, music.outside, 'mask');
+    
 
     music.sound.play();
     music.sound.volume = 0.2;
@@ -415,6 +473,7 @@ function setStage(song){
     }
     else{
         game.input.onTap.add(mouseKeyActivate, this);
+        console.log("yes");
     }
 
     stage.update = function(){
@@ -435,6 +494,7 @@ function setStage(song){
     }
 
     stage.tear = function(){
+        game.input.onTap.removeAll();
         tearStage();
     }
 }
@@ -444,17 +504,38 @@ function tearStage(){
     beatlist.destroy();
     //linelist.destroy();
     taplist.destroy();
+    stage.plank.destroy();
+    stage.plank2.destroy();
     stage.update = function(){};
 }
 
 function mouseKeyActivate(tap){
-    var lane = Math.round((tap.x-widths/6)/(widths/6));
-    console.log(lane);
+    var points = [
+        [0, widths/6, heights*5/6],
+        [1, widths*2/6, heights*6/6],
+        [2, widths*3/6, heights*5/6],
+        [3, widths*4/6, heights*6/6],
+        [4, widths*5/6, heights*5/6],
+    ]
+    var best = [10000000, -1];
+    points.forEach(function(e,i,a){
+        var dx = e[1]-tap.x;
+        var dy = e[2]-tap.y;
+        var d = dx*dx + dy*dy;
+        console.log(d);
+        if(best[0] > d){
+            best[0] = d;
+            best[1] = e[0];
+        }
+    })
+    console.log(best[1]);
+    var lane = best[1];
     if(lane == 0) eater.keyActivate('h');
     if(lane == 1) eater.keyActivate('n');
     if(lane == 2) eater.keyActivate('j');
     if(lane == 3) eater.keyActivate('m');
     if(lane == 4) eater.keyActivate('k');
+    //taplist.addtap(lane, 1);
 }
 
 function mouseActivate(key){
@@ -551,13 +632,13 @@ var eater = {
                     else if(gap < judge.perfectwindow){
                         /* perfect shot! */
                         e.kill();
-                        judge.score += 100;
+                        judge.score += 1;
                         taplist.addtap(e.lane, e.glyph);
                     }
                     else{
                         /* ok shot. */
                         e.kill();
-                        judge.score += 50;
+                        judge.score += 0.5;
                         taplist.addtap(e.lane, e.glyph);
                     }
                 }
